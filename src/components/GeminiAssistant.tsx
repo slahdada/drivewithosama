@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-import { GoogleGenAI } from "@google/genai";
-import { Sparkles, Send, Bot, User, Loader2 } from 'lucide-react';
+import { Sparkles, Send, Bot, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 const GeminiAssistant = () => {
@@ -20,19 +19,28 @@ const GeminiAssistant = () => {
     setLoading(true);
 
     try {
-      const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY || '' });
-      const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: userMessage,
-        config: {
-          systemInstruction: "Tu es l'assistant virtuel de l'auto-école 'DriveWithOsama' à Tunis. Ton but est d'aider les élèves avec leurs questions sur le code de la route tunisien et les formations de l'auto-école. Sois amical, moderne, et encourageant. Réponds en français, et ajoute parfois une petite touche de dialecte tunisien ou d'arabe si c'est pertinent. Si on te demande les prix, dis qu'ils sont flexibles et qu'il vaut mieux nous contacter sur WhatsApp au +21622272720.",
-        }
+      const res = await fetch('/.netlify/functions/ask-gemini', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: userMessage }),
       });
 
-      setMessages(prev => [...prev, { role: 'bot', text: response.text || "Désolé, je n'ai pas pu traiter votre demande." }]);
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Function failed');
+      }
+
+      setMessages(prev => [
+        ...prev,
+        { role: 'bot', text: data.text || "Désolé, je n'ai pas pu traiter votre demande." }
+      ]);
     } catch (error) {
       console.error(error);
-      setMessages(prev => [...prev, { role: 'bot', text: "Oups, j'ai eu un petit problème technique. Réessayez plus tard !" }]);
+      setMessages(prev => [
+        ...prev,
+        { role: 'bot', text: "Oups, j'ai eu un petit problème technique. Réessayez plus tard !" }
+      ]);
     } finally {
       setLoading(false);
     }
@@ -40,7 +48,6 @@ const GeminiAssistant = () => {
 
   return (
     <>
-      {/* Floating Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="fixed bottom-8 right-8 w-16 h-16 bg-emerald-500 text-white rounded-full shadow-2xl shadow-emerald-500/40 flex items-center justify-center z-50 hover:scale-110 transition-transform group"
@@ -48,7 +55,6 @@ const GeminiAssistant = () => {
         {isOpen ? <X size={24} /> : <Sparkles size={24} className="group-hover:animate-pulse" />}
       </button>
 
-      {/* Chat Window */}
       <AnimatePresence>
         {isOpen && (
           <motion.div
@@ -57,7 +63,6 @@ const GeminiAssistant = () => {
             exit={{ opacity: 0, scale: 0.9, y: 20 }}
             className="fixed bottom-28 right-8 w-[350px] md:w-[400px] h-[500px] bg-white rounded-[2.5rem] shadow-2xl border border-zinc-100 flex flex-col overflow-hidden z-50"
           >
-            {/* Header */}
             <div className="bg-zinc-950 p-6 text-white flex items-center gap-4">
               <div className="w-10 h-10 rounded-xl bg-emerald-500 flex items-center justify-center">
                 <Bot size={24} />
@@ -71,7 +76,6 @@ const GeminiAssistant = () => {
               </div>
             </div>
 
-            {/* Messages */}
             <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-zinc-50">
               {messages.map((msg, i) => (
                 <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
@@ -89,14 +93,13 @@ const GeminiAssistant = () => {
               )}
             </div>
 
-            {/* Input */}
             <div className="p-4 bg-white border-t border-zinc-100">
               <div className="relative">
                 <input
                   type="text"
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && handleSend()}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSend()}
                   placeholder="Posez votre question..."
                   className="w-full pl-4 pr-12 py-3 bg-zinc-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
                 />
