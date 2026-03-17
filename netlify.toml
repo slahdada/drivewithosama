@@ -1,0 +1,58 @@
+import { GoogleGenAI } from "@google/genai";
+
+export default async (req: Request) => {
+  if (req.method !== "POST") {
+    return new Response(JSON.stringify({ error: "Method not allowed" }), {
+      status: 405,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  try {
+    const { message } = await req.json();
+
+    if (!message || typeof message !== "string") {
+      return new Response(JSON.stringify({ error: "Message is required" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      return new Response(JSON.stringify({ error: "Missing GEMINI_API_KEY" }), {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    const ai = new GoogleGenAI({ apiKey });
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: message,
+      config: {
+        systemInstruction:
+          "Tu es l'assistant virtuel de l'auto-école 'DriveWithOsama' à Tunis. Ton but est d'aider les élèves avec leurs questions sur le code de la route tunisien et les formations de l'auto-école. Sois amical, moderne, et encourageant. Réponds en français, et ajoute parfois une petite touche de dialecte tunisien ou d'arabe si c'est pertinent. Si on te demande les prix, dis qu'ils sont flexibles et qu'il vaut mieux nous contacter sur WhatsApp au +21622272720.",
+      },
+    });
+
+    return new Response(
+      JSON.stringify({ text: response.text || "Pas de réponse." }),
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }
+    );
+  } catch (error) {
+    console.error("Gemini function error:", error);
+
+    return new Response(
+      JSON.stringify({ error: "Erreur serveur lors de l'appel Gemini." }),
+      {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      }
+    );
+  }
+};
